@@ -1,0 +1,5 @@
+[workspace]
+members = [
+    "crates/vscode-native",
+]
+resolver = "2"
