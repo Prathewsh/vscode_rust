@@ -99,6 +99,7 @@ impl EditorBuffer {
         }
     }
 
+    #[allow(dead_code)]
     pub fn insert_char(&mut self, ch: char) {
         self.delete_selection_if_any();
         self.push_undo();
@@ -240,4 +241,116 @@ impl EditorBuffer {
             .and_then(|e| e.to_str())
             .unwrap_or("rs")
     }
+
+    pub fn select_all(&mut self) {
+        self.selection_anchor = Some(0);
+        self.cursor_char = self.rope.len_chars();
+    }
+
+    pub fn selected_text(&self) -> Option<String> {
+        if let Some(anchor) = self.selection_anchor {
+            if anchor != self.cursor_char {
+                let start = anchor.min(self.cursor_char).min(self.rope.len_chars());
+                let end = anchor.max(self.cursor_char).min(self.rope.len_chars());
+                return Some(self.rope.slice(start..end).to_string());
+            }
+        }
+        None
+    }
+
+    pub fn cut_selected_text(&mut self) -> Option<String> {
+        let text = self.selected_text()?;
+        self.delete_selection_if_any();
+        Some(text)
+    }
+
+    pub fn insert_newline_with_indent(&mut self) {
+        let cur_line = self.cursor_line();
+        let line_content = self.line_str(cur_line).unwrap_or_default();
+        let indent: String = line_content
+            .chars()
+            .take_while(|c| *c == ' ' || *c == '\t')
+            .collect();
+        let mut to_insert = String::from("\n");
+        to_insert.push_str(&indent);
+        self.insert_str(&to_insert);
+    }
+
+    pub fn go_to_line(&mut self, target_line_1_based: usize) {
+        let line_0 = target_line_1_based.saturating_sub(1);
+        let total = self.rope.len_lines();
+        let actual = line_0.min(total.saturating_sub(1));
+        self.cursor_char = self.rope.line_to_char(actual);
+        self.selection_anchor = None;
+    }
+
+    pub fn set_cursor_from_line_col(&mut self, line: usize, col: usize) {
+        if line < self.rope.len_lines() {
+            let line_start = self.rope.line_to_char(line);
+            let line_len = self.rope.line(line).len_chars().saturating_sub(1);
+            self.cursor_char = (line_start + col.min(line_len)).min(self.rope.len_chars());
+            self.selection_anchor = None;
+        }
+    }
+
+    pub fn find_next(&mut self, query: &str, case_sensitive: bool) -> bool {
+        if query.is_empty() || self.rope.len_chars() == 0 {
+            return false;
+        }
+        let content = self.rope.to_string();
+        let current_char = self.cursor_char.min(content.len());
+        let q = if case_sensitive { query.to_string() } else { query.to_lowercase() };
+        let h = if case_sensitive { content.clone() } else { content.to_lowercase() };
+
+        // Search after current cursor, then wrap around
+        let after_slice = &h[current_char..];
+        let found = after_slice.find(&q).map(|idx| current_char + idx)
+            .or_else(|| h[..current_char].find(&q));
+
+        if let Some(byte_pos) = found {
+            let char_pos = content[..byte_pos].chars().count();
+            let query_chars = query.chars().count();
+            self.selection_anchor = Some(char_pos);
+            self.cursor_char = char_pos + query_chars;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn find_prev(&mut self, query: &str, case_sensitive: bool) -> bool {
+        if query.is_empty() || self.rope.len_chars() == 0 {
+            return false;
+        }
+        let content = self.rope.to_string();
+        let current_char = self.selection_anchor.unwrap_or(self.cursor_char).min(content.len());
+        let q = if case_sensitive { query.to_string() } else { query.to_lowercase() };
+        let h = if case_sensitive { content.clone() } else { content.to_lowercase() };
+
+        // Search before current position, then wrap to end
+        let before_slice = &h[..current_char];
+        let found = before_slice.rfind(&q)
+            .or_else(|| h[current_char..].rfind(&q).map(|idx| current_char + idx));
+
+        if let Some(byte_pos) = found {
+            let char_pos = content[..byte_pos].chars().count();
+            let query_chars = query.chars().count();
+            self.selection_anchor = Some(char_pos);
+            self.cursor_char = char_pos + query_chars;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn count_matches(&self, query: &str, case_sensitive: bool) -> usize {
+        if query.is_empty() {
+            return 0;
+        }
+        let content = self.rope.to_string();
+        let q = if case_sensitive { query.to_string() } else { query.to_lowercase() };
+        let h = if case_sensitive { content } else { content.to_lowercase() };
+        h.match_indices(&q).count()
+    }
 }
+

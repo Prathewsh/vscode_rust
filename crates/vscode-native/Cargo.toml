@@ -17,4 +17,5 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 syntect = { version = "5.2", default-features = false, features = ["default-syntaxes", "default-themes", "parsing", "regex-fancy"] }
 portable-pty = "0.8"
+fancy-regex = "0.16"
 

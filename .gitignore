@@ -24,6 +24,13 @@ vscode.db
 /.profile-oss
 /cli/target
 /cli/openssl
+target/
+**/target/
+*.rs.bk
+Cargo.lock.bak
+*.swp
+*.swo
+*~
 product.overrides.json
 *.snap.actual
 *.tsbuildinfo
