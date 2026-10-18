@@ -98,7 +98,7 @@ impl VsCodeApp {
             terminal_maximized: false,
             terminal_tab: "Terminal".to_string(),
             terminal_input: String::new(),
-            status_msg: "Antigravity Code Ready".to_string(),
+            status_msg: "Native VS Ready".to_string(),
 
             palette_open: false,
             palette_mode: PaletteMode::Command,
@@ -387,80 +387,6 @@ impl VsCodeApp {
             } else if input.key_pressed(Key::S) {
                 self.execute_command(ctx, "file.save");
                 return;
-            } else if input.key_pressed(Key::A) {
-                if let Some(buf) = self.open_buffers.get_mut(self.active_buffer_idx) {
-                    buf.select_all();
-                }
-                return;
-            } else if input.key_pressed(Key::C) {
-                if let Some(buf) = self.open_buffers.get(self.active_buffer_idx) {
-                    if let Some(selected) = buf.selected_text() {
-                        ctx.copy_text(selected);
-                        self.status_msg = "Copied to clipboard".to_string();
-                    }
-                }
-                return;
-            } else if input.key_pressed(Key::X) {
-                if let Some(buf) = self.open_buffers.get_mut(self.active_buffer_idx) {
-                    if let Some(cut_text) = buf.cut_selected_text() {
-                        ctx.copy_text(cut_text);
-                        self.status_msg = "Cut to clipboard".to_string();
-                    }
-                }
-                return;
-            } else if input.key_pressed(Key::Z) {
-                if input.modifiers.shift {
-                    if let Some(buf) = self.open_buffers.get_mut(self.active_buffer_idx) {
-                        buf.redo();
-                    }
-                } else if let Some(buf) = self.open_buffers.get_mut(self.active_buffer_idx) {
-                    buf.undo();
-                }
-                return;
-            } else if input.key_pressed(Key::Y) {
-                if let Some(buf) = self.open_buffers.get_mut(self.active_buffer_idx) {
-                    buf.redo();
-                }
-                return;
-            }
-        }
-
-        // Editor buffer typing & navigation
-        if let Some(buf) = self.open_buffers.get_mut(self.active_buffer_idx) {
-            let shift = input.modifiers.shift;
-
-            if input.key_pressed(Key::ArrowLeft) {
-                buf.move_cursor_left(shift);
-            } else if input.key_pressed(Key::ArrowRight) {
-                buf.move_cursor_right(shift);
-            } else if input.key_pressed(Key::ArrowUp) {
-                buf.move_cursor_up(shift);
-            } else if input.key_pressed(Key::ArrowDown) {
-                buf.move_cursor_down(shift);
-            } else if input.key_pressed(Key::Backspace) {
-                buf.backspace();
-            } else if input.key_pressed(Key::Delete) {
-                buf.delete_forward();
-            } else if input.key_pressed(Key::Enter) {
-                buf.insert_newline_with_indent();
-            } else if input.key_pressed(Key::Tab) {
-                buf.insert_str("    ");
-            } else {
-                for event in &input.events {
-                    match event {
-                        egui::Event::Text(text) => {
-                            if !text.is_empty() && !input.modifiers.command && !input.modifiers.ctrl {
-                                buf.insert_str(text);
-                            }
-                        }
-                        egui::Event::Paste(text) => {
-                            if !text.is_empty() {
-                                buf.insert_str(text);
-                            }
-                        }
-                        _ => {}
-                    }
-                }
             }
         }
     }
@@ -477,7 +403,7 @@ impl eframe::App for VsCodeApp {
             .show(ctx, |ui| {
                 ui.horizontal_centered(|ui| {
                     ui.add_space(8.0);
-                    ui.label(RichText::new("Antigravity Code").color(self.theme.accent).strong().size(13.0));
+                    ui.label(RichText::new("Native VS").color(self.theme.accent).strong().size(13.0));
 
                     // Menus
                     ui.menu_button("File", |ui| {
@@ -847,8 +773,8 @@ impl eframe::App for VsCodeApp {
 
                                 let total_w = ui.available_width() - 8.0;
                                 egui::Frame::none()
-                                    .fill(self.theme.tab_inactive)
-                                    .stroke(egui::Stroke::new(1.0, self.theme.border))
+                                    .fill(self.theme.input_bg)
+                                    .stroke(egui::Stroke::new(1.0, self.theme.input_border))
                                     .rounding(3.0)
                                     .inner_margin(egui::Margin::symmetric(6.0, 3.0))
                                     .show(ui, |ui| {
@@ -863,7 +789,7 @@ impl eframe::App for VsCodeApp {
                                             );
 
                                             if (search_edit.lost_focus() && ctx.input(|i| i.key_pressed(Key::Enter)))
-                                                || search_edit.changed()
+                                                 || search_edit.changed()
                                             {
                                                 if let Some(ref r) = self.explorer.root_path {
                                                     self.search_state.execute_search(r);
@@ -888,8 +814,8 @@ impl eframe::App for VsCodeApp {
 
                                     let total_w = ui.available_width() - 8.0;
                                     egui::Frame::none()
-                                        .fill(self.theme.tab_inactive)
-                                        .stroke(egui::Stroke::new(1.0, self.theme.border))
+                                        .fill(self.theme.input_bg)
+                                        .stroke(egui::Stroke::new(1.0, self.theme.input_border))
                                         .rounding(3.0)
                                         .inner_margin(egui::Margin::symmetric(6.0, 3.0))
                                         .show(ui, |ui| {
@@ -934,8 +860,8 @@ impl eframe::App for VsCodeApp {
                                         ui.add_space(20.0);
                                         let w = ui.available_width() - 8.0;
                                         egui::Frame::none()
-                                            .fill(self.theme.tab_inactive)
-                                            .stroke(egui::Stroke::new(1.0, self.theme.border))
+                                            .fill(self.theme.input_bg)
+                                            .stroke(egui::Stroke::new(1.0, self.theme.input_border))
                                             .rounding(3.0)
                                             .inner_margin(egui::Margin::symmetric(6.0, 3.0))
                                             .show(ui, |ui| {
@@ -957,8 +883,8 @@ impl eframe::App for VsCodeApp {
                                         ui.add_space(20.0);
                                         let w = ui.available_width() - 8.0;
                                         egui::Frame::none()
-                                            .fill(self.theme.tab_inactive)
-                                            .stroke(egui::Stroke::new(1.0, self.theme.border))
+                                            .fill(self.theme.input_bg)
+                                            .stroke(egui::Stroke::new(1.0, self.theme.input_border))
                                             .rounding(3.0)
                                             .inner_margin(egui::Margin::symmetric(6.0, 3.0))
                                             .show(ui, |ui| {
@@ -994,6 +920,12 @@ impl eframe::App for VsCodeApp {
                                         format!("{} results found", hit_count)
                                     };
                                     ui.label(RichText::new(msg).size(11.0).color(self.theme.text_muted));
+                                });
+                            } else {
+                                ui.add_space(16.0);
+                                ui.horizontal(|ui| {
+                                    ui.add_space(14.0);
+                                    ui.label(RichText::new("Type in search box to find across files").size(11.0).color(self.theme.text_muted));
                                 });
                             }
 
@@ -1155,7 +1087,21 @@ impl eframe::App for VsCodeApp {
                             ui.add_space(6.0);
                             ui.horizontal(|ui| {
                                 ui.add_space(8.0);
-                                ui.add(egui::TextEdit::singleline(&mut self.git_state.commit_message).hint_text("Commit message"));
+                                let w = ui.available_width() - 8.0;
+                                egui::Frame::none()
+                                    .fill(self.theme.input_bg)
+                                    .stroke(egui::Stroke::new(1.0, self.theme.input_border))
+                                    .rounding(3.0)
+                                    .inner_margin(egui::Margin::symmetric(6.0, 3.0))
+                                    .show(ui, |ui| {
+                                        ui.set_width(w);
+                                        ui.add(
+                                            egui::TextEdit::singleline(&mut self.git_state.commit_message)
+                                                .hint_text("Commit message")
+                                                .desired_width(w)
+                                                .frame(false)
+                                        );
+                                    });
                             });
 
                             ui.horizontal(|ui| {
@@ -1217,7 +1163,7 @@ impl eframe::App for VsCodeApp {
                                     ("Material Theme Icons", "Installed & Enabled by Default", "Active"),
                                     ("rust-analyzer", "Rust language support and analyzer", "Active"),
                                     ("CodeLLDB", "Native debugger for Rust, C++, and Swift", "Active"),
-                                    ("GitLens", "Supercharge Git within Antigravity Code", "Active"),
+                                    ("GitLens", "Supercharge Git within Native VS", "Active"),
                                     ("Even Better TOML", "Fully-featured TOML support", "Active"),
                                     ("Error Lens", "Highlight errors and warnings inline", "Active"),
                                 ];
@@ -1241,7 +1187,7 @@ impl eframe::App for VsCodeApp {
                                 ui.add_space(8.0);
                                 ui.label(RichText::new("Color Theme").strong().color(self.theme.text_primary));
                                 let themes = [
-                                    (ThemePreset::Antigravity, "Antigravity Dark (Default)"),
+                                    (ThemePreset::Antigravity, "Native VS Dark (Default)"),
                                     (ThemePreset::DarkPlus, "Dark+ (VS Code Default)"),
                                     (ThemePreset::Monokai, "Monokai"),
                                     (ThemePreset::SolarizedDark, "Solarized Dark"),
@@ -1525,10 +1471,27 @@ impl eframe::App for VsCodeApp {
                     ui.horizontal(|ui| {
                         ui.add_space(10.0);
                         ui.label(RichText::new("Find:").size(11.0).color(self.theme.text_muted));
-                        let find_edit = ui.add(egui::TextEdit::singleline(&mut self.find_query).hint_text("Search in editor"));
-                        if find_edit.lost_focus() && ctx.input(|i| i.key_pressed(Key::Enter)) {
-                            if let Some(buf) = self.open_buffers.get_mut(self.active_buffer_idx) {
-                                buf.find_next(&self.find_query, self.find_case_sensitive);
+                        let mut find_edit = None;
+                        egui::Frame::none()
+                            .fill(self.theme.input_bg)
+                            .stroke(egui::Stroke::new(1.0, self.theme.input_border))
+                            .rounding(3.0)
+                            .inner_margin(egui::Margin::symmetric(6.0, 3.0))
+                            .show(ui, |ui| {
+                                let edit = ui.add(
+                                    egui::TextEdit::singleline(&mut self.find_query)
+                                        .hint_text("Search in editor")
+                                        .desired_width(180.0)
+                                        .frame(false)
+                                );
+                                find_edit = Some(edit);
+                            });
+
+                        if let Some(edit) = find_edit {
+                            if edit.lost_focus() && ctx.input(|i| i.key_pressed(Key::Enter)) {
+                                if let Some(buf) = self.open_buffers.get_mut(self.active_buffer_idx) {
+                                    buf.find_next(&self.find_query, self.find_case_sensitive);
+                                }
                             }
                         }
 
@@ -1563,7 +1526,7 @@ impl eframe::App for VsCodeApp {
                 if self.open_buffers.is_empty() {
                     ui.vertical_centered(|ui| {
                         ui.add_space(80.0);
-                        ui.label(RichText::new("Antigravity Code").size(22.0).strong().color(self.theme.accent));
+                        ui.label(RichText::new("Native VS").size(22.0).strong().color(self.theme.accent));
                         ui.add_space(6.0);
                         ui.label(RichText::new("Native Rust Code Editor").size(13.0).color(self.theme.text_muted));
                         ui.add_space(24.0);

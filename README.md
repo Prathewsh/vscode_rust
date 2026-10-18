@@ -1,4 +1,4 @@
-# Visual Studio Code (Native Rust Edition)
+# Native VS
 
 A high-performance, native desktop implementation of the Visual Studio Code workbench written in Rust.
 

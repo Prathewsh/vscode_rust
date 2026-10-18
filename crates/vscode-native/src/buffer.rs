@@ -21,6 +21,7 @@ pub struct EditorBuffer {
     redo_stack: Vec<UndoEntry>,
 }
 
+#[allow(dead_code)]
 impl EditorBuffer {
     pub fn empty() -> Self {
         let text = "// Welcome to VS Code (Native Rust Edition)\n// Interactive text editing, undo/redo, syntax highlighting, and integrated terminal.\n\nfn main() {\n    println!(\"Hello, native VS Code!\");\n}\n";

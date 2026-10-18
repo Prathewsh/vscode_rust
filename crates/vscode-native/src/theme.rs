@@ -50,6 +50,8 @@ pub struct ThemeColors {
     pub border: Color32,
     pub line_numbers: Color32,
     pub accent: Color32,
+    pub input_bg: Color32,
+    pub input_border: Color32,
     pub syntect_theme: &'static str,
     pub is_dark: bool,
 }
@@ -59,7 +61,7 @@ impl ThemeColors {
         match preset {
             ThemePreset::Antigravity => Self {
                 preset,
-                name: "Antigravity Dark (Default)",
+                name: "Native VS Dark (Default)",
                 activity_bar: Color32::from_rgb(24, 24, 28),     // #18181c
                 sidebar_bg: Color32::from_rgb(30, 30, 36),       // #1e1e24
                 sidebar_header: Color32::from_rgb(33, 33, 40),   // #212128
@@ -71,7 +73,9 @@ impl ThemeColors {
                 text_muted: Color32::from_rgb(161, 161, 170),    // #a1a1aa
                 border: Color32::from_rgb(48, 48, 56),           // #303038 clear clean borders
                 line_numbers: Color32::from_rgb(110, 115, 130),  // #6e7382 legible line numbers
-                accent: Color32::from_rgb(56, 189, 248),         // #38bdf8 Antigravity sky blue
+                accent: Color32::from_rgb(56, 189, 248),         // #38bdf8 Native sky blue
+                input_bg: Color32::from_rgb(42, 42, 50),         // #2a2a32 clear visible input surface
+                input_border: Color32::from_rgb(60, 60, 72),     // #3c3c48
                 syntect_theme: "base16-ocean.dark",
                 is_dark: true,
             },
@@ -90,6 +94,8 @@ impl ThemeColors {
                 border: Color32::from_rgb(60, 60, 60),
                 line_numbers: Color32::from_rgb(133, 133, 133),
                 accent: Color32::from_rgb(0, 122, 204),
+                input_bg: Color32::from_rgb(60, 60, 60),
+                input_border: Color32::from_rgb(75, 75, 75),
                 syntect_theme: "base16-ocean.dark",
                 is_dark: true,
             },
@@ -108,6 +114,8 @@ impl ThemeColors {
                 border: Color32::from_rgb(50, 50, 50),
                 line_numbers: Color32::from_rgb(144, 144, 138),
                 accent: Color32::from_rgb(230, 219, 116),
+                input_bg: Color32::from_rgb(48, 49, 44),
+                input_border: Color32::from_rgb(65, 65, 60),
                 syntect_theme: "base16-mocha.dark",
                 is_dark: true,
             },
@@ -126,6 +134,8 @@ impl ThemeColors {
                 border: Color32::from_rgb(10, 60, 75),
                 line_numbers: Color32::from_rgb(88, 110, 117),
                 accent: Color32::from_rgb(42, 161, 152),
+                input_bg: Color32::from_rgb(10, 48, 59),
+                input_border: Color32::from_rgb(18, 65, 80),
                 syntect_theme: "Solarized (dark)",
                 is_dark: true,
             },
@@ -144,6 +154,8 @@ impl ThemeColors {
                 border: Color32::from_rgb(48, 54, 61),
                 line_numbers: Color32::from_rgb(110, 118, 129),
                 accent: Color32::from_rgb(46, 160, 67),
+                input_bg: Color32::from_rgb(33, 38, 45),
+                input_border: Color32::from_rgb(48, 54, 61),
                 syntect_theme: "base16-ocean.dark",
                 is_dark: true,
             },
@@ -162,6 +174,8 @@ impl ThemeColors {
                 border: Color32::from_rgb(218, 218, 218),
                 line_numbers: Color32::from_rgb(150, 150, 150),
                 accent: Color32::from_rgb(0, 122, 204),
+                input_bg: Color32::from_rgb(255, 255, 255),
+                input_border: Color32::from_rgb(206, 206, 206),
                 syntect_theme: "base16-ocean.light",
                 is_dark: false,
             },
@@ -179,10 +193,10 @@ pub fn apply_theme(ctx: &egui::Context, theme: &ThemeColors) {
     visuals.panel_fill = theme.editor_bg;
     visuals.window_fill = theme.sidebar_bg;
     visuals.faint_bg_color = theme.sidebar_header;
-    visuals.extreme_bg_color = theme.editor_bg;
+    visuals.extreme_bg_color = theme.input_bg;
     visuals.widgets.noninteractive.bg_fill = theme.sidebar_bg;
     visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, theme.text_primary);
-    visuals.widgets.inactive.bg_fill = theme.tab_inactive;
+    visuals.widgets.inactive.bg_fill = theme.input_bg;
     visuals.widgets.inactive.fg_stroke = Stroke::new(1.0, theme.text_muted);
     visuals.widgets.hovered.bg_fill = Color32::from_rgb(60, 65, 75);
     visuals.widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::WHITE);
