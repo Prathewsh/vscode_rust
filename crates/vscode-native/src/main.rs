@@ -14,7 +14,7 @@ use syntax::SyntaxHighlighter;
 use terminal::TerminalManager;
 use theme::*;
 
-use eframe::egui::{self, Color32, FontId, Key, Pos2, Rect, RichText, Vec2};
+use eframe::egui::{self, Color32, FontId, Key, Pos2, RichText, Vec2};
 use std::path::{Path, PathBuf};
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -33,6 +33,7 @@ struct VsCodeApp {
     theme: ThemeColors,
     active_tab: ActivityBarTab,
     sidebar_open: bool,
+    sidebar_width: f32,
     explorer: ExplorerState,
     open_buffers: Vec<EditorBuffer>,
     active_buffer_idx: usize,
@@ -85,8 +86,9 @@ impl VsCodeApp {
 
         let mut app = Self {
             theme,
-            active_tab: ActivityBarTab::Search,
+            active_tab: ActivityBarTab::Explorer,
             sidebar_open: true,
+            sidebar_width: 260.0,
             explorer,
             open_buffers: vec![initial_buffer],
             active_buffer_idx: 0,
@@ -217,11 +219,26 @@ impl VsCodeApp {
                     if buf.path.is_none() {
                         if let Some(path) = rfd::FileDialog::new().save_file() {
                             buf.path = Some(path.clone());
-                            buf.file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("Untitled").to_string();
+                            buf.file_name = path
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("Untitled")
+                                .to_string();
+                        } else {
+                            return;
                         }
                     }
-                    let _ = buf.save();
-                    self.status_msg = format!("Saved: {}", buf.file_name);
+                    match buf.save() {
+                        Ok(_) => {
+                            self.status_msg = format!("Saved: {}", buf.file_name);
+                            if let Some(ref r) = self.explorer.root_path.clone() {
+                                self.git_state.refresh(Some(&r));
+                            }
+                        }
+                        Err(e) => {
+                            self.status_msg = format!("Error saving {}: {}", buf.file_name, e);
+                        }
+                    }
                 }
             }
             "file.close_tab" => {
@@ -682,9 +699,10 @@ impl eframe::App for VsCodeApp {
 
         // Primary Sidebar
         if self.sidebar_open {
-            egui::SidePanel::left("primary_sidebar")
-                .default_width(240.0)
-                .width_range(160.0..=500.0)
+            let panel_response = egui::SidePanel::left("primary_sidebar")
+                .default_width(self.sidebar_width)
+                .resizable(true)
+                .width_range(160.0..=600.0)
                 .frame(egui::Frame::none().fill(self.theme.sidebar_bg).stroke(egui::Stroke::new(1.0, self.theme.border)))
                 .show(ctx, |ui| {
                     ui.add_space(8.0);
@@ -829,9 +847,9 @@ impl eframe::App for VsCodeApp {
 
                                 let total_w = ui.available_width() - 8.0;
                                 egui::Frame::none()
-                                    .fill(Color32::from_rgb(32, 32, 35))
-                                    .stroke(egui::Stroke::new(1.0, Color32::from_rgb(52, 52, 58)))
-                                    .rounding(2.0)
+                                    .fill(self.theme.tab_inactive)
+                                    .stroke(egui::Stroke::new(1.0, self.theme.border))
+                                    .rounding(3.0)
                                     .inner_margin(egui::Margin::symmetric(6.0, 3.0))
                                     .show(ui, |ui| {
                                         ui.set_width(total_w);
@@ -870,9 +888,9 @@ impl eframe::App for VsCodeApp {
 
                                     let total_w = ui.available_width() - 8.0;
                                     egui::Frame::none()
-                                        .fill(Color32::from_rgb(32, 32, 35))
-                                        .stroke(egui::Stroke::new(1.0, Color32::from_rgb(52, 52, 58)))
-                                        .rounding(2.0)
+                                        .fill(self.theme.tab_inactive)
+                                        .stroke(egui::Stroke::new(1.0, self.theme.border))
+                                        .rounding(3.0)
                                         .inner_margin(egui::Margin::symmetric(6.0, 3.0))
                                         .show(ui, |ui| {
                                             ui.set_width(total_w);
@@ -915,7 +933,19 @@ impl eframe::App for VsCodeApp {
                                     ui.horizontal(|ui| {
                                         ui.add_space(20.0);
                                         let w = ui.available_width() - 8.0;
-                                        ui.add(egui::TextEdit::singleline(&mut self.search_state.files_to_include).desired_width(w));
+                                        egui::Frame::none()
+                                            .fill(self.theme.tab_inactive)
+                                            .stroke(egui::Stroke::new(1.0, self.theme.border))
+                                            .rounding(3.0)
+                                            .inner_margin(egui::Margin::symmetric(6.0, 3.0))
+                                            .show(ui, |ui| {
+                                                ui.set_width(w);
+                                                ui.add(
+                                                    egui::TextEdit::singleline(&mut self.search_state.files_to_include)
+                                                        .desired_width(w)
+                                                        .frame(false)
+                                                );
+                                            });
                                     });
 
                                     ui.add_space(2.0);
@@ -926,7 +956,19 @@ impl eframe::App for VsCodeApp {
                                     ui.horizontal(|ui| {
                                         ui.add_space(20.0);
                                         let w = ui.available_width() - 8.0;
-                                        ui.add(egui::TextEdit::singleline(&mut self.search_state.files_to_exclude).desired_width(w));
+                                        egui::Frame::none()
+                                            .fill(self.theme.tab_inactive)
+                                            .stroke(egui::Stroke::new(1.0, self.theme.border))
+                                            .rounding(3.0)
+                                            .inner_margin(egui::Margin::symmetric(6.0, 3.0))
+                                            .show(ui, |ui| {
+                                                ui.set_width(w);
+                                                ui.add(
+                                                    egui::TextEdit::singleline(&mut self.search_state.files_to_exclude)
+                                                        .desired_width(w)
+                                                        .frame(false)
+                                                );
+                                            });
                                     });
                                 }
                             }
@@ -1136,23 +1178,31 @@ impl eframe::App for VsCodeApp {
                                 ui.label(RichText::new(format!("Changes ({})", self.git_state.changes.len())).size(11.0).strong().color(self.theme.text_muted));
                             });
 
-                            egui::ScrollArea::vertical().show(ui, |ui| {
+                            let row_h = 22.0;
+                            let change_count = self.git_state.changes.len();
+                            egui::ScrollArea::vertical().show_rows(ui, row_h, change_count, |ui, row_range| {
                                 let mut open_target = None;
-                                for change in &self.git_state.changes {
-                                    ui.horizontal(|ui| {
-                                        ui.add_space(8.0);
-                                        let status_color = match change.status.as_str() {
-                                            "M" => Color32::from_rgb(226, 192, 141),
-                                            "A" | "??" => Color32::from_rgb(115, 201, 145),
-                                            "D" => Color32::from_rgb(241, 76, 76),
-                                            _ => self.theme.text_muted,
-                                        };
-                                        ui.label(RichText::new(&change.status).color(status_color).size(11.0).strong());
-                                        MaterialIcon::render_file_icon(ui, &change.display_name, false, false);
-                                        if ui.selectable_label(false, RichText::new(&change.display_name).size(12.0).color(self.theme.text_primary)).clicked() {
-                                            open_target = Some(change.path.clone());
-                                        }
-                                    });
+                                for idx in row_range {
+                                    if let Some(change) = self.git_state.changes.get(idx) {
+                                        ui.horizontal(|ui| {
+                                            ui.add_space(8.0);
+                                            let status_color = match change.status.as_str() {
+                                                "M" => Color32::from_rgb(226, 192, 141),
+                                                "A" | "??" => Color32::from_rgb(115, 201, 145),
+                                                "D" => Color32::from_rgb(241, 76, 76),
+                                                _ => self.theme.text_muted,
+                                            };
+                                            ui.label(RichText::new(&change.status).color(status_color).size(11.0).strong());
+                                            MaterialIcon::render_file_icon(ui, &change.display_name, false, false);
+                                            if ui.selectable_label(false, RichText::new(&change.display_name).size(12.0).color(self.theme.text_primary)).clicked() {
+                                                if change.path.exists() {
+                                                    open_target = Some(change.path.clone());
+                                                } else {
+                                                    self.status_msg = format!("File was deleted: {}", change.display_name);
+                                                }
+                                            }
+                                        });
+                                    }
                                 }
                                 if let Some(target) = open_target {
                                     self.open_file(&target);
@@ -1236,6 +1286,7 @@ impl eframe::App for VsCodeApp {
                         }
                     }
                 });
+            self.sidebar_width = panel_response.response.rect.width().clamp(160.0, 600.0);
         }
 
         // Bottom Integrated Terminal Panel
@@ -1423,29 +1474,38 @@ impl eframe::App for VsCodeApp {
                     for (i, buf) in self.open_buffers.iter().enumerate() {
                         let is_active = i == self.active_buffer_idx;
                         let tab_bg = if is_active { self.theme.tab_active } else { self.theme.tab_inactive };
-                        let dirty_mark = if buf.is_dirty { " *" } else { "" };
+                        let dirty_mark = if buf.is_dirty { " •" } else { "" };
 
-                        egui::Frame::none()
+                        let tab_frame = egui::Frame::none()
                             .fill(tab_bg)
-                            .stroke(if is_active { egui::Stroke::new(1.0, self.theme.accent) } else { egui::Stroke::new(1.0, self.theme.border) })
-                            .inner_margin(egui::Margin::symmetric(10.0, 5.0))
-                            .show(ui, |ui| {
-                                ui.horizontal(|ui| {
-                                    MaterialIcon::render_file_icon(ui, &buf.file_name, false, false);
-                                    ui.add_space(4.0);
+                            .stroke(egui::Stroke::new(1.0, self.theme.border))
+                            .inner_margin(egui::Margin::symmetric(10.0, 5.0));
 
-                                    let label_text = format!("{}{}", buf.file_name, dirty_mark);
-                                    let label_color = if is_active { Color32::WHITE } else { self.theme.text_muted };
-                                    if ui.selectable_label(is_active, RichText::new(label_text).color(label_color)).clicked() {
-                                        self.active_buffer_idx = i;
-                                    }
+                        let resp = tab_frame.show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                MaterialIcon::render_file_icon(ui, &buf.file_name, false, false);
+                                ui.add_space(4.0);
 
-                                    // Vector close button
-                                    if MaterialIcon::close_button(ui, 12.0) {
-                                        tab_to_close = Some(i);
-                                    }
-                                });
+                                let label_text = format!("{}{}", buf.file_name, dirty_mark);
+                                let label_color = if is_active { Color32::WHITE } else { self.theme.text_muted };
+                                ui.label(RichText::new(label_text).color(label_color).size(12.0));
+
+                                ui.add_space(4.0);
+                                if MaterialIcon::close_button(ui, 11.0) {
+                                    tab_to_close = Some(i);
+                                }
                             });
+                        }).response;
+
+                        if resp.interact(egui::Sense::click()).clicked() {
+                            self.active_buffer_idx = i;
+                        }
+
+                        if is_active {
+                            let r = resp.rect;
+                            let line = [Pos2::new(r.min.x, r.min.y + 1.0), Pos2::new(r.max.x, r.min.y + 1.0)];
+                            ui.painter().line_segment(line, egui::Stroke::new(2.0, self.theme.accent));
+                        }
                     }
 
                     // Add new tab button
@@ -1503,34 +1563,81 @@ impl eframe::App for VsCodeApp {
                 if self.open_buffers.is_empty() {
                     ui.vertical_centered(|ui| {
                         ui.add_space(80.0);
-                        ui.label(RichText::new("Antigravity Code").size(20.0).strong().color(self.theme.text_primary));
-                        ui.add_space(10.0);
-                        ui.label(RichText::new("Command Palette: Ctrl+Shift+P").color(self.theme.text_muted));
-                        ui.label(RichText::new("Quick Open: Ctrl+P").color(self.theme.text_muted));
-                        ui.label(RichText::new("Find in Files: Ctrl+Shift+F").color(self.theme.text_muted));
-                        ui.label(RichText::new("Toggle Terminal: Ctrl+`").color(self.theme.text_muted));
+                        ui.label(RichText::new("Antigravity Code").size(22.0).strong().color(self.theme.accent));
+                        ui.add_space(6.0);
+                        ui.label(RichText::new("Native Rust Code Editor").size(13.0).color(self.theme.text_muted));
+                        ui.add_space(24.0);
+
+                        egui::Frame::none()
+                            .fill(self.theme.sidebar_bg)
+                            .stroke(egui::Stroke::new(1.0, self.theme.border))
+                            .rounding(4.0)
+                            .inner_margin(egui::Margin::symmetric(24.0, 16.0))
+                            .show(ui, |ui| {
+                                ui.vertical(|ui| {
+                                    ui.label(RichText::new("Shortcuts:").strong().color(self.theme.text_primary));
+                                    ui.add_space(4.0);
+                                    ui.label(RichText::new("Command Palette: Ctrl+Shift+P").color(self.theme.text_muted));
+                                    ui.label(RichText::new("Quick Open: Ctrl+P").color(self.theme.text_muted));
+                                    ui.label(RichText::new("Find in Files: Ctrl+Shift+F").color(self.theme.text_muted));
+                                    ui.label(RichText::new("Toggle Terminal: Ctrl+`").color(self.theme.text_muted));
+                                    ui.label(RichText::new("Save File: Ctrl+S").color(self.theme.text_muted));
+                                });
+                            });
+
                         ui.add_space(20.0);
-                        if ui.button("Create New File").clicked() {
-                            self.new_untitled_file();
-                        }
+                        ui.horizontal(|ui| {
+                            ui.add_space(ui.available_width() / 2.0 - 100.0);
+                            if ui.button("New File").clicked() {
+                                self.new_untitled_file();
+                            }
+                            if ui.button("Open File...").clicked() {
+                                self.execute_command(ctx, "file.open_file");
+                            }
+                        });
                     });
                     return;
                 }
 
-                // High-performance virtualized editor buffer area with Minimap
+                // High-performance editable editor buffer area with Minimap
                 if let Some(buf) = self.open_buffers.get_mut(self.active_buffer_idx) {
-                    let line_count = buf.line_count();
+                    let line_count = buf.line_count().max(1);
                     let ext = buf.get_extension().to_string();
                     let font_id = FontId::monospace(self.editor_font_size);
-                    let line_height = self.editor_font_size + 5.0;
-                    let cur_line = buf.cursor_line();
-                    let cur_col = buf.cursor_col();
 
-                    let mut clicked_line = None;
                     let minimap_width = 72.0;
                     let editor_w = (ui.available_width() - minimap_width).max(180.0);
-                    let available_h = ui.available_height();
-                    let mut visible_rows = 0..line_count.min(30);
+                    let available_h = (ui.available_height() - 26.0).max(0.0);
+
+                    // Breadcrumb Bar
+                    ui.horizontal(|ui| {
+                        ui.add_space(8.0);
+                        let file_path_str = if let Some(ref p) = buf.path {
+                            p.display().to_string()
+                        } else {
+                            buf.file_name.clone()
+                        };
+                        let parts: Vec<&str> = file_path_str.split('/').filter(|s| !s.is_empty()).collect();
+                        let show_parts = if parts.len() > 4 {
+                            &parts[parts.len() - 4..]
+                        } else {
+                            &parts[..]
+                        };
+                        for (idx, part) in show_parts.iter().enumerate() {
+                            if idx > 0 {
+                                ui.label(RichText::new(">").size(10.0).color(self.theme.border));
+                            }
+                            if idx == show_parts.len() - 1 {
+                                MaterialIcon::render_file_icon(ui, part, false, false);
+                                ui.label(RichText::new(*part).size(11.0).color(self.theme.text_primary));
+                            } else {
+                                ui.label(RichText::new(*part).size(11.0).color(self.theme.text_muted));
+                            }
+                        }
+                    });
+                    ui.separator();
+
+                    let mut clicked_line = None;
 
                     ui.horizontal(|ui| {
                         // Left: Code Editor and Gutter
@@ -1540,76 +1647,57 @@ impl eframe::App for VsCodeApp {
                             |ui| {
                                 egui::ScrollArea::both()
                                     .auto_shrink([false, false])
-                                    .show_rows(ui, line_height, line_count, |ui, row_range| {
-                                        visible_rows = row_range.clone();
+                                    .show(ui, |ui| {
                                         ui.horizontal_top(|ui| {
-                                            // Gutter: Line Numbers right-aligned
+                                            // Gutter: Line Numbers
                                             ui.vertical(|ui| {
                                                 ui.set_width(42.0);
-                                                for idx in row_range.clone() {
-                                                    let num_str = format!("{:>4}", idx + 1);
-                                                    let col = if idx == cur_line { Color32::WHITE } else { self.theme.line_numbers };
-                                                    ui.label(RichText::new(num_str).font(font_id.clone()).color(col));
-                                                }
+                                                let line_numbers_str = (1..=line_count)
+                                                    .map(|n| format!("{:>4}", n))
+                                                    .collect::<Vec<_>>()
+                                                    .join("\n");
+                                                ui.label(
+                                                    RichText::new(line_numbers_str)
+                                                        .font(font_id.clone())
+                                                        .color(self.theme.line_numbers),
+                                                );
                                             });
 
-                                            ui.add_space(8.0); // Clean spacing instead of harsh separator line
+                                            ui.add_space(8.0);
 
-                                            // Highlighted Code Lines for visible rows ONLY
-                                            ui.vertical(|ui| {
-                                                for idx in row_range {
-                                                    let raw_line = buf.line_str(idx).unwrap_or_default();
-                                                    let tokens = self.syntax_highlighter.highlight_line(&raw_line, &ext);
+                                            // Real Editable Code Editor
+                                            let mut layouter = |ui: &egui::Ui, text: &str, _wrap: f32| {
+                                                let job = self.syntax_highlighter.highlight_text(text, &ext, font_id.clone());
+                                                ui.fonts(|f| f.layout_job(job))
+                                            };
 
-                                                    let line_response = ui.horizontal(|ui| {
-                                                        ui.spacing_mut().item_spacing.x = 0.0;
-                                                        let mut col_offset = 0;
+                                            let text_edit = egui::TextEdit::multiline(&mut buf.text)
+                                                .code_editor()
+                                                .font(font_id.clone())
+                                                .lock_focus(true)
+                                                .desired_width(f32::INFINITY)
+                                                .frame(false)
+                                                .layouter(&mut layouter);
 
-                                                        for (color, token_text) in tokens {
-                                                            let clean_text = token_text.trim_end_matches(['\r', '\n']);
-                                                            if clean_text.is_empty() {
-                                                                continue;
-                                                            }
+                                            let edit_output = text_edit.show(ui);
 
-                                                            let token_len = clean_text.chars().count();
-                                                            if idx == cur_line && cur_col >= col_offset && cur_col < col_offset + token_len {
-                                                                let split_pos = cur_col - col_offset;
-                                                                let before: String = clean_text.chars().take(split_pos).collect();
-                                                                let at_cursor: String = clean_text.chars().skip(split_pos).take(1).collect();
-                                                                let after: String = clean_text.chars().skip(split_pos + 1).collect();
+                                            if let Some(target_char) = buf.requested_cursor_char.take() {
+                                                let mut state = egui::text_edit::TextEditState::load(ui.ctx(), edit_output.response.id).unwrap_or_default();
+                                                let ccursor = egui::text::CCursor::new(target_char);
+                                                state.cursor.set_char_range(Some(egui::text::CCursorRange::one(ccursor)));
+                                                state.store(ui.ctx(), edit_output.response.id);
+                                                edit_output.response.scroll_to_me(Some(egui::Align::Center));
+                                            }
 
-                                                                if !before.is_empty() {
-                                                                    ui.label(RichText::new(before).font(font_id.clone()).color(color));
-                                                                }
-                                                                ui.label(
-                                                                    RichText::new(if at_cursor.is_empty() { " " } else { &at_cursor })
-                                                                        .font(font_id.clone())
-                                                                        .background_color(self.theme.accent)
-                                                                        .color(Color32::BLACK),
-                                                                );
-                                                                if !after.is_empty() {
-                                                                    ui.label(RichText::new(after).font(font_id.clone()).color(color));
-                                                                }
-                                                            } else {
-                                                                ui.label(RichText::new(clean_text).font(font_id.clone()).color(color));
-                                                            }
-                                                            col_offset += token_len;
-                                                        }
+                                            if edit_output.response.changed() {
+                                                buf.is_dirty = true;
+                                                buf.sync_from_text();
+                                            }
 
-                                                        if idx == cur_line && cur_col >= col_offset {
-                                                            ui.label(
-                                                                RichText::new(" ")
-                                                                    .font(font_id.clone())
-                                                                    .background_color(self.theme.accent),
-                                                            );
-                                                        }
-                                                    }).response;
-
-                                                    if line_response.interact(egui::Sense::click()).clicked() {
-                                                        clicked_line = Some(idx);
-                                                    }
-                                                }
-                                            });
+                                            if let Some(cursor_range) = edit_output.cursor_range {
+                                                let char_idx = cursor_range.primary.ccursor.index;
+                                                buf.cursor_char = char_idx;
+                                            }
                                         });
                                     });
                             },
@@ -1622,8 +1710,8 @@ impl eframe::App for VsCodeApp {
                         );
 
                         let painter = ui.painter();
-                        painter.rect_filled(map_rect, 0.0, Color32::from_rgb(18, 18, 22));
-                        painter.line_segment([map_rect.left_top(), map_rect.left_bottom()], egui::Stroke::new(1.0, Color32::from_rgb(34, 34, 40)));
+                        painter.rect_filled(map_rect, 0.0, Color32::from_rgb(24, 24, 28));
+                        painter.line_segment([map_rect.left_top(), map_rect.left_bottom()], egui::Stroke::new(1.0, self.theme.border));
 
                         let map_h = map_rect.height();
                         let total_l = line_count.max(1) as f32;
@@ -1651,16 +1739,6 @@ impl eframe::App for VsCodeApp {
                                 );
                             }
                         }
-
-                        // Viewport indicator slider box
-                        let vp_top = map_rect.min.y + (visible_rows.start as f32 * step_y);
-                        let vp_h = ((visible_rows.end - visible_rows.start) as f32 * step_y).max(22.0);
-                        let vp_rect = Rect::from_min_size(
-                            Pos2::new(map_rect.min.x, vp_top.min(map_rect.max.y - vp_h)),
-                            Vec2::new(minimap_width, vp_h),
-                        );
-                        painter.rect_filled(vp_rect, 1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 18));
-                        painter.rect_stroke(vp_rect, 1.0, egui::Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 45)));
 
                         if map_resp.clicked() || map_resp.dragged() {
                             if let Some(pos) = map_resp.interact_pointer_pos() {

@@ -60,17 +60,17 @@ impl ThemeColors {
             ThemePreset::Antigravity => Self {
                 preset,
                 name: "Antigravity Dark (Default)",
-                activity_bar: Color32::from_rgb(20, 20, 22),     // #141416
-                sidebar_bg: Color32::from_rgb(24, 24, 27),       // #18181b
-                sidebar_header: Color32::from_rgb(24, 24, 27),   // #18181b
-                editor_bg: Color32::from_rgb(18, 18, 20),        // #121214 deep graphite
-                status_bar: Color32::from_rgb(24, 24, 27),       // #18181b sleek dark status bar
-                tab_active: Color32::from_rgb(18, 18, 20),       // #121214
-                tab_inactive: Color32::from_rgb(24, 24, 27),     // #18181b
+                activity_bar: Color32::from_rgb(24, 24, 28),     // #18181c
+                sidebar_bg: Color32::from_rgb(30, 30, 36),       // #1e1e24
+                sidebar_header: Color32::from_rgb(33, 33, 40),   // #212128
+                editor_bg: Color32::from_rgb(30, 30, 36),        // #1e1e24 distinct dark surface
+                status_bar: Color32::from_rgb(0, 122, 204),       // #007acc iconic VS Code blue status bar
+                tab_active: Color32::from_rgb(30, 30, 36),       // #1e1e24
+                tab_inactive: Color32::from_rgb(24, 24, 28),     // #18181c
                 text_primary: Color32::from_rgb(244, 244, 245),  // #f4f4f5
                 text_muted: Color32::from_rgb(161, 161, 170),    // #a1a1aa
-                border: Color32::from_rgb(39, 39, 42),           // #27272a
-                line_numbers: Color32::from_rgb(82, 82, 91),     // #52525b
+                border: Color32::from_rgb(48, 48, 56),           // #303038 clear clean borders
+                line_numbers: Color32::from_rgb(110, 115, 130),  // #6e7382 legible line numbers
                 accent: Color32::from_rgb(56, 189, 248),         // #38bdf8 Antigravity sky blue
                 syntect_theme: "base16-ocean.dark",
                 is_dark: true,

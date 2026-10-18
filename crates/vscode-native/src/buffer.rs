@@ -11,9 +11,11 @@ struct UndoEntry {
 pub struct EditorBuffer {
     pub path: Option<PathBuf>,
     pub file_name: String,
+    pub text: String,
     pub rope: Rope,
     pub cursor_char: usize,
     pub selection_anchor: Option<usize>,
+    pub requested_cursor_char: Option<usize>,
     pub is_dirty: bool,
     undo_stack: Vec<UndoEntry>,
     redo_stack: Vec<UndoEntry>,
@@ -25,9 +27,11 @@ impl EditorBuffer {
         Self {
             path: None,
             file_name: "Untitled-1".to_string(),
+            text: text.to_string(),
             rope: Rope::from_str(text),
             cursor_char: 0,
             selection_anchor: None,
+            requested_cursor_char: None,
             is_dirty: false,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
@@ -45,19 +49,29 @@ impl EditorBuffer {
         Ok(Self {
             path: Some(path.to_path_buf()),
             file_name,
+            text: content.clone(),
             rope: Rope::from_str(&content),
             cursor_char: 0,
             selection_anchor: None,
+            requested_cursor_char: None,
             is_dirty: false,
             undo_stack: Vec::new(),
             redo_stack: Vec::new(),
         })
     }
 
+    pub fn sync_from_text(&mut self) {
+        self.rope = Rope::from_str(&self.text);
+    }
+
+    pub fn sync_to_text(&mut self) {
+        self.text = self.rope.to_string();
+    }
+
     pub fn save(&mut self) -> std::io::Result<()> {
         if let Some(path) = &self.path {
-            let mut file = fs::File::create(path)?;
-            self.rope.write_to(&mut file)?;
+            fs::write(path, &self.text)?;
+            self.rope = Rope::from_str(&self.text);
             self.is_dirty = false;
         }
         Ok(())
@@ -84,6 +98,7 @@ impl EditorBuffer {
             self.rope = entry.rope;
             self.cursor_char = entry.cursor_char.min(self.rope.len_chars());
             self.selection_anchor = None;
+            self.sync_to_text();
         }
     }
 
@@ -96,6 +111,7 @@ impl EditorBuffer {
             self.rope = entry.rope;
             self.cursor_char = entry.cursor_char.min(self.rope.len_chars());
             self.selection_anchor = None;
+            self.sync_to_text();
         }
     }
 
@@ -106,6 +122,7 @@ impl EditorBuffer {
         let idx = self.cursor_char.min(self.rope.len_chars());
         self.rope.insert_char(idx, ch);
         self.cursor_char = idx + 1;
+        self.sync_to_text();
     }
 
     pub fn insert_str(&mut self, text: &str) {
@@ -114,10 +131,12 @@ impl EditorBuffer {
         let idx = self.cursor_char.min(self.rope.len_chars());
         self.rope.insert(idx, text);
         self.cursor_char = idx + text.chars().count();
+        self.sync_to_text();
     }
 
     pub fn backspace(&mut self) {
         if self.delete_selection_if_any() {
+            self.sync_to_text();
             return;
         }
         if self.cursor_char > 0 {
@@ -125,16 +144,19 @@ impl EditorBuffer {
             let idx = self.cursor_char - 1;
             self.rope.remove(idx..self.cursor_char);
             self.cursor_char = idx;
+            self.sync_to_text();
         }
     }
 
     pub fn delete_forward(&mut self) {
         if self.delete_selection_if_any() {
+            self.sync_to_text();
             return;
         }
         if self.cursor_char < self.rope.len_chars() {
             self.push_undo();
             self.rope.remove(self.cursor_char..self.cursor_char + 1);
+            self.sync_to_text();
         }
     }
 
@@ -281,6 +303,7 @@ impl EditorBuffer {
         let total = self.rope.len_lines();
         let actual = line_0.min(total.saturating_sub(1));
         self.cursor_char = self.rope.line_to_char(actual);
+        self.requested_cursor_char = Some(self.cursor_char);
         self.selection_anchor = None;
     }
 
@@ -289,6 +312,7 @@ impl EditorBuffer {
             let line_start = self.rope.line_to_char(line);
             let line_len = self.rope.line(line).len_chars().saturating_sub(1);
             self.cursor_char = (line_start + col.min(line_len)).min(self.rope.len_chars());
+            self.requested_cursor_char = Some(self.cursor_char);
             self.selection_anchor = None;
         }
     }
@@ -312,6 +336,7 @@ impl EditorBuffer {
             let query_chars = query.chars().count();
             self.selection_anchor = Some(char_pos);
             self.cursor_char = char_pos + query_chars;
+            self.requested_cursor_char = Some(self.cursor_char);
             true
         } else {
             false
@@ -337,6 +362,7 @@ impl EditorBuffer {
             let query_chars = query.chars().count();
             self.selection_anchor = Some(char_pos);
             self.cursor_char = char_pos + query_chars;
+            self.requested_cursor_char = Some(self.cursor_char);
             true
         } else {
             false

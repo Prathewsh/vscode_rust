@@ -1,4 +1,4 @@
-use eframe::egui::Color32;
+use eframe::egui::{text::LayoutJob, Color32, FontId, TextFormat};
 use syntect::easy::HighlightLines;
 use syntect::highlighting::ThemeSet;
 use syntect::parsing::SyntaxSet;
@@ -24,6 +24,53 @@ impl SyntaxHighlighter {
         }
     }
 
+    pub fn highlight_text(&self, text: &str, extension: &str, font_id: FontId) -> LayoutJob {
+        let mut job = LayoutJob::default();
+        let syntax = self
+            .syntax_set
+            .find_syntax_by_extension(extension)
+            .unwrap_or_else(|| self.syntax_set.find_syntax_plain_text());
+
+        let theme = self
+            .theme_set
+            .themes
+            .get(&self.theme_name)
+            .or_else(|| self.theme_set.themes.get("base16-ocean.dark"))
+            .unwrap();
+
+        let mut highlighter = HighlightLines::new(syntax, theme);
+
+        for line in text.split_inclusive('\n') {
+            if let Ok(ranges) = highlighter.highlight_line(line, &self.syntax_set) {
+                for (style, token_str) in ranges {
+                    let color = Color32::from_rgb(style.foreground.r, style.foreground.g, style.foreground.b);
+                    job.append(
+                        token_str,
+                        0.0,
+                        TextFormat {
+                            font_id: font_id.clone(),
+                            color,
+                            ..Default::default()
+                        },
+                    );
+                }
+            } else {
+                job.append(
+                    line,
+                    0.0,
+                    TextFormat {
+                        font_id: font_id.clone(),
+                        color: Color32::from_rgb(204, 204, 204),
+                        ..Default::default()
+                    },
+                );
+            }
+        }
+
+        job
+    }
+
+    #[allow(dead_code)]
     pub fn highlight_line<'a>(&'a self, line: &'a str, extension: &str) -> Vec<(Color32, &'a str)> {
         let syntax = self
             .syntax_set
