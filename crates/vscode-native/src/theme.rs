@@ -74,8 +74,8 @@ impl ThemeColors {
                 border: Color32::from_rgb(48, 48, 56),           // #303038 clear clean borders
                 line_numbers: Color32::from_rgb(110, 115, 130),  // #6e7382 legible line numbers
                 accent: Color32::from_rgb(56, 189, 248),         // #38bdf8 Native sky blue
-                input_bg: Color32::from_rgb(42, 42, 50),         // #2a2a32 clear visible input surface
-                input_border: Color32::from_rgb(60, 60, 72),     // #3c3c48
+                input_bg: Color32::from_rgb(50, 50, 62),         // #32323e clearly visible elevated input surface
+                input_border: Color32::from_rgb(74, 74, 92),     // #4a4a5c crisp clean border
                 syntect_theme: "base16-ocean.dark",
                 is_dark: true,
             },

@@ -760,31 +760,29 @@ impl eframe::App for VsCodeApp {
 
                         ActivityBarTab::Search => {
                             ui.add_space(4.0);
-                            // Row 1: Left chevron / spacing + Search input with Aa, ab, .*
+                            // Row 1: Left chevron (toggles Replace) + Search input with Aa, ab, .*
                             ui.horizontal(|ui| {
                                 ui.add_space(4.0);
-                                if !self.search_show_replace {
-                                    if MaterialIcon::chevron_button(ui, false, "Toggle Replace") {
-                                        self.search_show_replace = true;
-                                    }
-                                } else {
-                                    ui.add_space(14.0);
+                                if MaterialIcon::chevron_button(ui, self.search_show_replace, "Toggle Replace") {
+                                    self.search_show_replace = !self.search_show_replace;
                                 }
+                                ui.add_space(2.0);
 
                                 let total_w = ui.available_width() - 8.0;
+                                let inner_w = total_w - 12.0;
                                 egui::Frame::none()
                                     .fill(self.theme.input_bg)
                                     .stroke(egui::Stroke::new(1.0, self.theme.input_border))
                                     .rounding(3.0)
                                     .inner_margin(egui::Margin::symmetric(6.0, 3.0))
                                     .show(ui, |ui| {
-                                        ui.set_width(total_w);
+                                        ui.set_width(inner_w);
                                         ui.horizontal(|ui| {
-                                            let text_w = ui.available_width() - 74.0;
+                                            let text_w = (inner_w - 76.0).max(40.0);
                                             let search_edit = ui.add(
                                                 egui::TextEdit::singleline(&mut self.search_state.query)
                                                     .hint_text("Search")
-                                                    .desired_width(text_w.max(60.0))
+                                                    .desired_width(text_w)
                                                     .frame(false)
                                             );
 
@@ -807,25 +805,23 @@ impl eframe::App for VsCodeApp {
                             if self.search_show_replace {
                                 ui.add_space(3.0);
                                 ui.horizontal(|ui| {
-                                    ui.add_space(4.0);
-                                    if MaterialIcon::chevron_button(ui, true, "Toggle Replace") {
-                                        self.search_show_replace = false;
-                                    }
+                                    ui.add_space(20.0);
 
                                     let total_w = ui.available_width() - 8.0;
+                                    let inner_w = total_w - 12.0;
                                     egui::Frame::none()
                                         .fill(self.theme.input_bg)
                                         .stroke(egui::Stroke::new(1.0, self.theme.input_border))
                                         .rounding(3.0)
                                         .inner_margin(egui::Margin::symmetric(6.0, 3.0))
                                         .show(ui, |ui| {
-                                            ui.set_width(total_w);
+                                            ui.set_width(inner_w);
                                             ui.horizontal(|ui| {
-                                                let text_w = ui.available_width() - 50.0;
+                                                let text_w = (inner_w - 54.0).max(40.0);
                                                 ui.add(
                                                     egui::TextEdit::singleline(&mut self.search_state.replace_query)
                                                         .hint_text("Replace")
-                                                        .desired_width(text_w.max(60.0))
+                                                        .desired_width(text_w)
                                                         .frame(false)
                                                 );
 
@@ -858,17 +854,18 @@ impl eframe::App for VsCodeApp {
                                     });
                                     ui.horizontal(|ui| {
                                         ui.add_space(20.0);
-                                        let w = ui.available_width() - 8.0;
+                                        let total_w = ui.available_width() - 8.0;
+                                        let inner_w = total_w - 12.0;
                                         egui::Frame::none()
                                             .fill(self.theme.input_bg)
                                             .stroke(egui::Stroke::new(1.0, self.theme.input_border))
                                             .rounding(3.0)
                                             .inner_margin(egui::Margin::symmetric(6.0, 3.0))
                                             .show(ui, |ui| {
-                                                ui.set_width(w);
+                                                ui.set_width(inner_w);
                                                 ui.add(
                                                     egui::TextEdit::singleline(&mut self.search_state.files_to_include)
-                                                        .desired_width(w)
+                                                        .desired_width(inner_w)
                                                         .frame(false)
                                                 );
                                             });
@@ -881,17 +878,18 @@ impl eframe::App for VsCodeApp {
                                     });
                                     ui.horizontal(|ui| {
                                         ui.add_space(20.0);
-                                        let w = ui.available_width() - 8.0;
+                                        let total_w = ui.available_width() - 8.0;
+                                        let inner_w = total_w - 12.0;
                                         egui::Frame::none()
                                             .fill(self.theme.input_bg)
                                             .stroke(egui::Stroke::new(1.0, self.theme.input_border))
                                             .rounding(3.0)
                                             .inner_margin(egui::Margin::symmetric(6.0, 3.0))
                                             .show(ui, |ui| {
-                                                ui.set_width(w);
+                                                ui.set_width(inner_w);
                                                 ui.add(
                                                     egui::TextEdit::singleline(&mut self.search_state.files_to_exclude)
-                                                        .desired_width(w)
+                                                        .desired_width(inner_w)
                                                         .frame(false)
                                                 );
                                             });
