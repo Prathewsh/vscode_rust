@@ -290,6 +290,25 @@ impl VsCodeApp {
                     buf.select_all();
                 }
             }
+            "edit.duplicate_line" => {
+                if let Some(buf) = self.open_buffers.get_mut(self.active_buffer_idx) {
+                    buf.duplicate_current_line();
+                }
+            }
+            "edit.delete_line" => {
+                if let Some(buf) = self.open_buffers.get_mut(self.active_buffer_idx) {
+                    buf.delete_current_line();
+                }
+            }
+            "view.zoom_in" => {
+                self.editor_font_size = (self.editor_font_size + 1.0).min(32.0);
+            }
+            "view.zoom_out" => {
+                self.editor_font_size = (self.editor_font_size - 1.0).max(9.0);
+            }
+            "view.zoom_reset" => {
+                self.editor_font_size = 13.0;
+            }
             "terminal.clear" => {
                 if let Some(session) = self.terminal_mgr.active_session() {
                     session.terminal.clear();
@@ -384,6 +403,18 @@ impl VsCodeApp {
             } else if input.key_pressed(Key::Backtick) {
                 self.terminal_open = !self.terminal_open;
                 return;
+            } else if input.key_pressed(Key::Equals) || input.key_pressed(Key::Plus) {
+                self.execute_command(ctx, "view.zoom_in");
+                return;
+            } else if input.key_pressed(Key::Minus) {
+                self.execute_command(ctx, "view.zoom_out");
+                return;
+            } else if input.key_pressed(Key::Num0) {
+                self.execute_command(ctx, "view.zoom_reset");
+                return;
+            } else if input.modifiers.shift && input.key_pressed(Key::K) {
+                self.execute_command(ctx, "edit.delete_line");
+                return;
             } else if input.key_pressed(Key::S) {
                 self.execute_command(ctx, "file.save");
                 return;
@@ -398,126 +429,179 @@ impl eframe::App for VsCodeApp {
 
         // Top Menubar / Titlebar
         egui::TopBottomPanel::top("top_titlebar")
-            .exact_height(36.0)
+            .exact_height(35.0)
             .frame(egui::Frame::none().fill(self.theme.sidebar_header).stroke(egui::Stroke::new(1.0, self.theme.border)))
             .show(ctx, |ui| {
                 ui.horizontal_centered(|ui| {
-                    ui.add_space(8.0);
-                    ui.label(RichText::new("Native VS").color(self.theme.accent).strong().size(13.0));
+                    ui.add_space(10.0);
 
-                    // Menus
-                    ui.menu_button("File", |ui| {
-                        if ui.button("New File (Ctrl+N)").clicked() {
-                            self.new_untitled_file();
-                            ui.close_menu();
-                        }
-                        if ui.button("Open File... (Ctrl+O)").clicked() {
-                            self.execute_command(ctx, "file.open_file");
-                            ui.close_menu();
-                        }
-                        if ui.button("Open Folder...").clicked() {
-                            self.execute_command(ctx, "file.open_folder");
-                            ui.close_menu();
-                        }
-                        ui.separator();
-                        if ui.button("Save (Ctrl+S)").clicked() {
-                            self.execute_command(ctx, "file.save");
-                            ui.close_menu();
-                        }
-                        if ui.button("Close Editor (Ctrl+W)").clicked() {
-                            self.execute_command(ctx, "file.close_tab");
-                            ui.close_menu();
-                        }
-                    });
+                    // VS Code Menu items with standard clean styling
+                    let menus: &[(&str, Vec<(&str, Option<&str>, Option<&str>)>)] = &[
+                        (
+                            "File",
+                            vec![
+                                ("New File", Some("Ctrl+N"), Some("file.new")),
+                                ("Open File...", Some("Ctrl+O"), Some("file.open_file")),
+                                ("Open Folder...", Some("Ctrl+K Ctrl+O"), Some("file.open_folder")),
+                                ("---", None, None),
+                                ("Save", Some("Ctrl+S"), Some("file.save")),
+                                ("Close Editor", Some("Ctrl+W"), Some("file.close_tab")),
+                                ("Close All Editors", None, Some("file.close_all")),
+                            ],
+                        ),
+                        (
+                            "Edit",
+                            vec![
+                                ("Undo", Some("Ctrl+Z"), Some("edit.undo")),
+                                ("Redo", Some("Ctrl+Y"), Some("edit.redo")),
+                                ("---", None, None),
+                                ("Find", Some("Ctrl+F"), Some("edit.find")),
+                                ("Select All", Some("Ctrl+A"), Some("edit.select_all")),
+                                ("Duplicate Line Down", Some("Shift+Alt+Down"), Some("edit.duplicate_line")),
+                                ("Delete Line", Some("Ctrl+Shift+K"), Some("edit.delete_line")),
+                            ],
+                        ),
+                        (
+                            "Selection",
+                            vec![
+                                ("Select All", Some("Ctrl+A"), Some("edit.select_all")),
+                                ("Expand Selection", None, None),
+                                ("Shrink Selection", None, None),
+                                ("---", None, None),
+                                ("Duplicate Line Down", Some("Shift+Alt+Down"), Some("edit.duplicate_line")),
+                                ("Delete Line", Some("Ctrl+Shift+K"), Some("edit.delete_line")),
+                            ],
+                        ),
+                        (
+                            "View",
+                            vec![
+                                ("Command Palette...", Some("Ctrl+Shift+P"), Some("palette.command")),
+                                ("Open View...", None, None),
+                                ("---", None, None),
+                                ("Explorer", Some("Ctrl+Shift+E"), Some("view.explorer")),
+                                ("Search", Some("Ctrl+Shift+F"), Some("view.search")),
+                                ("Source Control", Some("Ctrl+Shift+G"), Some("view.source_control")),
+                                ("---", None, None),
+                                ("Toggle Primary Side Bar", Some("Ctrl+B"), Some("view.toggle_sidebar")),
+                                ("Toggle Terminal", Some("Ctrl+`"), Some("view.toggle_terminal")),
+                                ("---", None, None),
+                                ("Zoom In", Some("Ctrl+="), Some("view.zoom_in")),
+                                ("Zoom Out", Some("Ctrl+-"), Some("view.zoom_out")),
+                                ("Reset Zoom", Some("Ctrl+0"), Some("view.zoom_reset")),
+                            ],
+                        ),
+                        (
+                            "Go",
+                            vec![
+                                ("Back", Some("Alt+Left"), None),
+                                ("Forward", Some("Alt+Right"), None),
+                                ("---", None, None),
+                                ("Go to File...", Some("Ctrl+P"), Some("palette.quick_open")),
+                                ("Go to Line/Column...", Some("Ctrl+G"), Some("edit.goto_line")),
+                            ],
+                        ),
+                        (
+                            "Terminal",
+                            vec![
+                                ("New Terminal", Some("Ctrl+Shift+`"), None),
+                                ("Clear Terminal", None, Some("terminal.clear")),
+                                ("---", None, None),
+                                ("Run: cargo check", None, Some("terminal.cargo_check")),
+                                ("Run: cargo test", None, Some("terminal.cargo_test")),
+                                ("Run: cargo run", None, Some("terminal.cargo_run")),
+                            ],
+                        ),
+                        (
+                            "Help",
+                            vec![
+                                ("Welcome", None, None),
+                                ("Documentation", None, None),
+                                ("Keyboard Shortcuts Reference", Some("Ctrl+K Ctrl+S"), None),
+                                ("---", None, None),
+                                ("About Visual Studio Code (Native)", None, None),
+                            ],
+                        ),
+                    ];
 
-                    ui.menu_button("Edit", |ui| {
-                        if ui.button("Undo (Ctrl+Z)").clicked() {
-                            self.execute_command(ctx, "edit.undo");
-                            ui.close_menu();
-                        }
-                        if ui.button("Redo (Ctrl+Y)").clicked() {
-                            self.execute_command(ctx, "edit.redo");
-                            ui.close_menu();
-                        }
-                        ui.separator();
-                        if ui.button("Find (Ctrl+F)").clicked() {
-                            self.find_open = true;
-                            ui.close_menu();
-                        }
-                        if ui.button("Select All (Ctrl+A)").clicked() {
-                            self.execute_command(ctx, "edit.select_all");
-                            ui.close_menu();
-                        }
-                    });
+                    for (menu_name, items) in menus {
+                        ui.menu_button(*menu_name, |ui| {
+                            for (label, shortcut, cmd_id) in items {
+                                if *label == "---" {
+                                    ui.separator();
+                                } else {
+                                    let mut btn_text = label.to_string();
+                                    if let Some(sc) = shortcut {
+                                        btn_text = format!("{:28} {:>14}", label, sc);
+                                    }
+                                    if ui.button(btn_text).clicked() {
+                                        if let Some(cmd) = cmd_id {
+                                            match *cmd {
+                                                "palette.command" => {
+                                                    self.palette_mode = PaletteMode::Command;
+                                                    self.palette_query = "> ".to_string();
+                                                    self.palette_open = true;
+                                                }
+                                                "palette.quick_open" => {
+                                                    self.palette_mode = PaletteMode::QuickOpen;
+                                                    self.palette_query.clear();
+                                                    if self.cached_files.is_empty() {
+                                                        self.refresh_cached_files();
+                                                    }
+                                                    self.palette_open = true;
+                                                }
+                                                c => self.execute_command(ctx, c),
+                                            }
+                                        }
+                                        ui.close_menu();
+                                    }
+                                }
+                            }
+                        });
+                    }
 
-                    ui.menu_button("Selection", |ui| {
-                        if ui.button("Select All (Ctrl+A)").clicked() {
-                            self.execute_command(ctx, "edit.select_all");
-                            ui.close_menu();
-                        }
-                    });
+                    // Centered Search / Command center bar styled exactly like official VS Code
+                    let avail_w = ui.available_width();
+                    let right_buttons_w = 80.0_f32;
+                    let search_bar_w = (340.0_f32).min(avail_w - right_buttons_w - 40.0).max(180.0);
+                    let leading_space = ((avail_w - right_buttons_w - search_bar_w) / 2.0).max(10.0);
+                    ui.add_space(leading_space);
 
-                    ui.menu_button("View", |ui| {
-                        if ui.button("Command Palette... (Ctrl+Shift+P)").clicked() {
-                            self.palette_mode = PaletteMode::Command;
-                            self.palette_query = "> ".to_string();
-                            self.palette_open = true;
-                            ui.close_menu();
-                        }
-                        if ui.button("Toggle Sidebar (Ctrl+B)").clicked() {
-                            self.sidebar_open = !self.sidebar_open;
-                            ui.close_menu();
-                        }
-                        if ui.button("Toggle Terminal (Ctrl+`)").clicked() {
-                            self.terminal_open = !self.terminal_open;
-                            ui.close_menu();
-                        }
-                        ui.separator();
-                        if ui.button("Explorer").clicked() {
-                            self.active_tab = ActivityBarTab::Explorer;
-                            self.sidebar_open = true;
-                            ui.close_menu();
-                        }
-                        if ui.button("Search").clicked() {
-                            self.active_tab = ActivityBarTab::Search;
-                            self.sidebar_open = true;
-                            ui.close_menu();
-                        }
-                        if ui.button("Source Control").clicked() {
-                            self.active_tab = ActivityBarTab::SourceControl;
-                            self.sidebar_open = true;
-                            ui.close_menu();
-                        }
-                    });
-
-                    ui.menu_button("Terminal", |ui| {
-                        if ui.button("Clear Terminal").clicked() {
-                            self.execute_command(ctx, "terminal.clear");
-                            self.terminal_open = true;
-                            ui.close_menu();
-                        }
-                        if ui.button("Run: cargo check").clicked() {
-                            self.execute_command(ctx, "terminal.cargo_check");
-                            ui.close_menu();
-                        }
-                        if ui.button("Run: cargo test").clicked() {
-                            self.execute_command(ctx, "terminal.cargo_test");
-                            ui.close_menu();
-                        }
-                        if ui.button("Run: cargo run").clicked() {
-                            self.execute_command(ctx, "terminal.cargo_run");
-                            ui.close_menu();
-                        }
-                    });
-
-                    // Search / Command center bar
-                    ui.add_space(20.0);
                     let folder_name = self.explorer.root_path.as_ref()
                         .and_then(|p| p.file_name())
                         .and_then(|n| n.to_str())
-                        .unwrap_or("Search");
-                    let search_bar_text = format!("Search {} (Ctrl+P)", folder_name);
-                    if ui.button(RichText::new(search_bar_text).size(11.0).color(self.theme.text_muted)).clicked() {
+                        .unwrap_or("vscode_rust");
+
+                    let search_rect = ui.allocate_exact_size(Vec2::new(search_bar_w, 24.0), egui::Sense::click());
+                    let search_hovered = search_rect.1.hovered();
+                    let sb_bg = if search_hovered {
+                        Color32::from_rgb(50, 52, 60)
+                    } else {
+                        Color32::from_rgb(40, 42, 48)
+                    };
+                    ui.painter().rect_filled(search_rect.0, 4.0, sb_bg);
+                    ui.painter().rect_stroke(
+                        search_rect.0,
+                        4.0,
+                        egui::Stroke::new(1.0, if search_hovered { self.theme.accent } else { Color32::from_rgb(58, 60, 68) }),
+                    );
+
+                    let icon_pos = Pos2::new(search_rect.0.min.x + 14.0, search_rect.0.center().y);
+                    ui.painter().circle_stroke(icon_pos, 4.0, egui::Stroke::new(1.2, self.theme.text_muted));
+                    ui.painter().line_segment(
+                        [Pos2::new(icon_pos.x + 2.8, icon_pos.y + 2.8), Pos2::new(icon_pos.x + 6.0, icon_pos.y + 6.0)],
+                        egui::Stroke::new(1.5, self.theme.text_muted),
+                    );
+
+                    let search_title = format!("{} (Ctrl+P)", folder_name);
+                    ui.painter().text(
+                        Pos2::new(search_rect.0.center().x, search_rect.0.center().y),
+                        egui::Align2::CENTER_CENTER,
+                        search_title,
+                        FontId::proportional(11.5),
+                        self.theme.text_muted,
+                    );
+
+                    if search_rect.1.clicked() {
                         self.palette_mode = PaletteMode::QuickOpen;
                         self.palette_query.clear();
                         if self.cached_files.is_empty() {
@@ -526,19 +610,13 @@ impl eframe::App for VsCodeApp {
                         self.palette_open = true;
                     }
 
-                    // Right header controls
+                    // Right header controls: official layout toggle buttons
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.add_space(8.0);
-                        if ui.button(if self.terminal_open { "Terminal" } else { "Terminal" })
-                            .on_hover_text("Toggle Terminal (Ctrl+`)")
-                            .clicked()
-                        {
+                        if MaterialIcon::terminal_action_button(ui, "layout_panel", "Toggle Panel (Ctrl+`)") {
                             self.terminal_open = !self.terminal_open;
                         }
-                        if ui.button("Sidebar")
-                            .on_hover_text("Toggle Sidebar (Ctrl+B)")
-                            .clicked()
-                        {
+                        if MaterialIcon::terminal_action_button(ui, "layout_sidebar", "Toggle Primary Side Bar (Ctrl+B)") {
                             self.sidebar_open = !self.sidebar_open;
                         }
                     });
@@ -593,7 +671,13 @@ impl eframe::App for VsCodeApp {
                     ];
                     for (tab, icon_id, tooltip) in tabs {
                         let is_active = self.active_tab == tab && self.sidebar_open;
-                        let btn = MaterialIcon::activity_bar_icon(ui, icon_id, is_active, tooltip);
+                        let badge_count = if tab == ActivityBarTab::SourceControl {
+                            let count = self.git_state.changes.len();
+                            if count > 0 { Some(count) } else { None }
+                        } else {
+                            None
+                        };
+                        let btn = MaterialIcon::activity_bar_icon_with_badge(ui, icon_id, is_active, tooltip, badge_count);
                         if btn {
                             if self.active_tab == tab && self.sidebar_open {
                                 self.sidebar_open = false;
@@ -1122,10 +1206,13 @@ impl eframe::App for VsCodeApp {
                                 ui.label(RichText::new(format!("Changes ({})", self.git_state.changes.len())).size(11.0).strong().color(self.theme.text_muted));
                             });
 
-                            let row_h = 22.0;
+                            let row_h = 24.0;
                             let change_count = self.git_state.changes.len();
                             egui::ScrollArea::vertical().show_rows(ui, row_h, change_count, |ui, row_range| {
                                 let mut open_target = None;
+                                let mut stage_target = None;
+                                let mut discard_target = None;
+
                                 for idx in row_range {
                                     if let Some(change) = self.git_state.changes.get(idx) {
                                         ui.horizontal(|ui| {
@@ -1145,11 +1232,27 @@ impl eframe::App for VsCodeApp {
                                                     self.status_msg = format!("File was deleted: {}", change.display_name);
                                                 }
                                             }
+
+                                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                                ui.add_space(4.0);
+                                                if ui.small_button("+").on_hover_text("Stage file").clicked() {
+                                                    stage_target = Some(change.path.clone());
+                                                }
+                                                if ui.small_button("↺").on_hover_text("Discard changes").clicked() {
+                                                    discard_target = Some(change.path.clone());
+                                                }
+                                            });
                                         });
                                     }
                                 }
                                 if let Some(target) = open_target {
                                     self.open_file(&target);
+                                }
+                                if let Some(target) = stage_target {
+                                    self.git_state.stage_file(self.explorer.root_path.as_deref(), &target);
+                                }
+                                if let Some(target) = discard_target {
+                                    self.git_state.discard_file_changes(self.explorer.root_path.as_deref(), &target);
                                 }
                             });
                         }
@@ -1425,6 +1528,7 @@ impl eframe::App for VsCodeApp {
                             .stroke(egui::Stroke::new(1.0, self.theme.border))
                             .inner_margin(egui::Margin::symmetric(10.0, 5.0));
 
+                        let mut tab_clicked = false;
                         let resp = tab_frame.show(ui, |ui| {
                             ui.horizontal(|ui| {
                                 MaterialIcon::render_file_icon(ui, &buf.file_name, false, false);
@@ -1432,16 +1536,18 @@ impl eframe::App for VsCodeApp {
 
                                 let label_text = format!("{}{}", buf.file_name, dirty_mark);
                                 let label_color = if is_active { Color32::WHITE } else { self.theme.text_muted };
-                                ui.label(RichText::new(label_text).color(label_color).size(12.0));
+                                if ui.add(egui::Label::new(RichText::new(label_text).color(label_color).size(12.0)).sense(egui::Sense::click())).clicked() {
+                                    tab_clicked = true;
+                                }
 
-                                ui.add_space(4.0);
-                                if MaterialIcon::close_button(ui, 11.0) {
+                                ui.add_space(6.0);
+                                if MaterialIcon::close_button(ui, 14.0) {
                                     tab_to_close = Some(i);
                                 }
                             });
                         }).response;
 
-                        if resp.interact(egui::Sense::click()).clicked() {
+                        if tab_clicked || (resp.interact(egui::Sense::click()).clicked() && tab_to_close.is_none()) {
                             self.active_buffer_idx = i;
                         }
 
