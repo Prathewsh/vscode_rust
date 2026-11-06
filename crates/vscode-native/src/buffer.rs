@@ -379,5 +379,45 @@ impl EditorBuffer {
         let h = if case_sensitive { content } else { content.to_lowercase() };
         h.match_indices(&q).count()
     }
+
+    pub fn duplicate_current_line(&mut self) {
+        if self.rope.len_chars() == 0 {
+            return;
+        }
+        self.push_undo();
+        let cur_line = self.cursor_line();
+        if let Some(mut line_content) = self.line_str(cur_line) {
+            let line_end_char = self.rope.line_to_char((cur_line + 1).min(self.rope.len_lines()));
+            if !line_content.ends_with('\n') {
+                line_content.push('\n');
+            }
+            self.rope.insert(line_end_char, &line_content);
+            self.cursor_char = (line_end_char + line_content.chars().count()).min(self.rope.len_chars());
+            self.requested_cursor_char = Some(self.cursor_char);
+            self.is_dirty = true;
+            self.sync_to_text();
+        }
+    }
+
+    pub fn delete_current_line(&mut self) {
+        if self.rope.len_chars() == 0 {
+            return;
+        }
+        self.push_undo();
+        let cur_line = self.cursor_line();
+        let start_char = self.rope.line_to_char(cur_line);
+        let end_char = if cur_line + 1 < self.rope.len_lines() {
+            self.rope.line_to_char(cur_line + 1)
+        } else {
+            self.rope.len_chars()
+        };
+        if start_char < end_char {
+            self.rope.remove(start_char..end_char);
+            self.cursor_char = start_char.min(self.rope.len_chars());
+            self.requested_cursor_char = Some(self.cursor_char);
+            self.is_dirty = true;
+            self.sync_to_text();
+        }
+    }
 }
 

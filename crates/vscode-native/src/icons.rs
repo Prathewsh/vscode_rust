@@ -172,7 +172,7 @@ impl MaterialIcon {
         let painter = ui.painter();
 
         if hovered {
-            painter.rect_filled(rect, 3.0, Color32::from_rgba_unmultiplied(230, 50, 50, 60));
+            painter.rect_filled(rect, 3.0, Color32::from_rgb(60, 60, 70));
         }
 
         let cross_color = if hovered { Color32::WHITE } else { Color32::from_rgb(160, 160, 170) };
@@ -199,6 +199,17 @@ impl MaterialIcon {
 
     /// Renders Activity Bar vector icons
     pub fn activity_bar_icon(ui: &mut Ui, id: &str, is_active: bool, tooltip: &str) -> bool {
+        Self::activity_bar_icon_with_badge(ui, id, is_active, tooltip, None)
+    }
+
+    /// Renders Activity Bar vector icons with optional numerical/text badge
+    pub fn activity_bar_icon_with_badge(
+        ui: &mut Ui,
+        id: &str,
+        is_active: bool,
+        tooltip: &str,
+        badge_count: Option<usize>,
+    ) -> bool {
         let (rect, response) = ui.allocate_exact_size(Vec2::new(48.0, 42.0), egui::Sense::click());
         let response = response.on_hover_text(tooltip);
         let hovered = response.hovered();
@@ -248,19 +259,29 @@ impl MaterialIcon {
                 painter.circle_filled(bot_left, 2.5, color);
                 painter.circle_filled(top_left, 2.5, color);
 
-                // Blue badge "1K+" overlapping bottom-center like in screenshot
-                let badge_rect = Rect::from_center_size(
-                    Pos2::new(center.x + 3.0, center.y + 6.0),
-                    Vec2::new(20.0, 11.5),
-                );
-                painter.rect_filled(badge_rect, 4.0, Color32::from_rgb(0, 120, 215));
-                painter.text(
-                    badge_rect.center(),
-                    egui::Align2::CENTER_CENTER,
-                    "1K+",
-                    egui::FontId::monospace(8.0),
-                    Color32::WHITE,
-                );
+                // Render badge only when actual count > 0
+                if let Some(count) = badge_count {
+                    if count > 0 {
+                        let text = if count > 999 {
+                            "999+".to_string()
+                        } else {
+                            count.to_string()
+                        };
+                        let badge_w = if text.len() > 2 { 22.0 } else { 16.0 };
+                        let badge_rect = Rect::from_center_size(
+                            Pos2::new(center.x + 4.0, center.y + 6.0),
+                            Vec2::new(badge_w, 12.0),
+                        );
+                        painter.rect_filled(badge_rect, 6.0, Color32::from_rgb(0, 120, 215));
+                        painter.text(
+                            badge_rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            text,
+                            egui::FontId::monospace(8.5),
+                            Color32::WHITE,
+                        );
+                    }
+                }
             }
             "debug" => {
                 // Play triangle with bug attached
@@ -621,6 +642,18 @@ impl MaterialIcon {
                 let r = Rect::from_center_size(center, Vec2::new(10.0, 9.0));
                 painter.rect_stroke(r, 1.0, stroke);
                 painter.line_segment([Pos2::new(r.min.x + 2.0, r.min.y + 2.0), Pos2::new(r.max.x - 2.0, r.min.y + 2.0)], Stroke::new(1.0, color));
+            }
+            "layout_sidebar" => {
+                // Window rectangle with left column filled/split
+                let r = Rect::from_center_size(center, Vec2::new(14.0, 12.0));
+                painter.rect_stroke(r, 1.5, stroke);
+                painter.line_segment([Pos2::new(r.min.x + 4.5, r.min.y), Pos2::new(r.min.x + 4.5, r.max.y)], stroke);
+            }
+            "layout_panel" => {
+                // Window rectangle with bottom row split
+                let r = Rect::from_center_size(center, Vec2::new(14.0, 12.0));
+                painter.rect_stroke(r, 1.5, stroke);
+                painter.line_segment([Pos2::new(r.min.x, r.max.y - 4.0), Pos2::new(r.max.x, r.max.y - 4.0)], stroke);
             }
             "close" => {
                 let pad = 4.0;

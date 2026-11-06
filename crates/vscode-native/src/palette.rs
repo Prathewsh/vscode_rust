@@ -34,6 +34,11 @@ pub fn get_all_commands() -> Vec<CommandItem> {
         CommandItem { id: "edit.undo", title: "Undo", category: "Edit", keybinding: "Ctrl+Z" },
         CommandItem { id: "edit.redo", title: "Redo", category: "Edit", keybinding: "Ctrl+Y" },
         CommandItem { id: "edit.select_all", title: "Select All", category: "Edit", keybinding: "Ctrl+A" },
+        CommandItem { id: "edit.duplicate_line", title: "Duplicate Line Down", category: "Edit", keybinding: "Shift+Alt+Down" },
+        CommandItem { id: "edit.delete_line", title: "Delete Line", category: "Edit", keybinding: "Ctrl+Shift+K" },
+        CommandItem { id: "view.zoom_in", title: "Zoom In (Increase Font Size)", category: "View", keybinding: "Ctrl+=" },
+        CommandItem { id: "view.zoom_out", title: "Zoom Out (Decrease Font Size)", category: "View", keybinding: "Ctrl+-" },
+        CommandItem { id: "view.zoom_reset", title: "Reset Zoom", category: "View", keybinding: "Ctrl+0" },
         CommandItem { id: "terminal.clear", title: "Clear Terminal Output", category: "Terminal", keybinding: "" },
         CommandItem { id: "terminal.cargo_check", title: "Run: cargo check", category: "Terminal", keybinding: "" },
         CommandItem { id: "terminal.cargo_test", title: "Run: cargo test", category: "Terminal", keybinding: "" },
@@ -276,6 +281,44 @@ impl GitState {
                 }
             }
         }
+    }
+
+    pub fn stage_file(&mut self, root: Option<&Path>, path: &Path) -> bool {
+        let Some(root) = root else { return false; };
+        let rel_path = path.strip_prefix(root).unwrap_or(path);
+        let res = std::process::Command::new("git")
+            .args(["add", "--", &rel_path.to_string_lossy()])
+            .current_dir(root)
+            .output();
+        self.refresh(Some(root));
+        matches!(res, Ok(o) if o.status.success())
+    }
+
+    #[allow(dead_code)]
+    pub fn unstage_file(&mut self, root: Option<&Path>, path: &Path) -> bool {
+        let Some(root) = root else { return false; };
+        let rel_path = path.strip_prefix(root).unwrap_or(path);
+        let res = std::process::Command::new("git")
+            .args(["restore", "--staged", "--", &rel_path.to_string_lossy()])
+            .current_dir(root)
+            .output();
+        self.refresh(Some(root));
+        matches!(res, Ok(o) if o.status.success())
+    }
+
+    pub fn discard_file_changes(&mut self, root: Option<&Path>, path: &Path) -> bool {
+        let Some(root) = root else { return false; };
+        let rel_path = path.strip_prefix(root).unwrap_or(path);
+        let _ = std::process::Command::new("git")
+            .args(["checkout", "--", &rel_path.to_string_lossy()])
+            .current_dir(root)
+            .output();
+        let _ = std::process::Command::new("git")
+            .args(["clean", "-f", "--", &rel_path.to_string_lossy()])
+            .current_dir(root)
+            .output();
+        self.refresh(Some(root));
+        true
     }
 
     pub fn commit(&mut self, root: Option<&Path>) -> bool {
